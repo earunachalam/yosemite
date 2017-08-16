@@ -1,0 +1,42 @@
+units			real
+dimension		3
+newton			on
+processors		* * *
+boundary		p p p
+atom_style		atomic
+
+read_data		./init.data
+read_dump		./inittemplate_iframe.lammpstrj 0 x y z box yes add yes
+
+mass			1 18.015
+mass			2 12.011
+
+group			mW type 1
+group			slab type 2
+compute mWtemp	mW temp
+
+# use Stillinger-Weber potential
+pair_style		sw
+pair_coeff		* * ./mW-C.sw mW C
+
+neighbor		1.0 multi
+neigh_modify	check yes delay 1
+neigh_modify	exclude type 2 2
+
+comm_modify mode multi
+timestep		10.0
+min_style		sd
+run_style		verlet
+
+# Now go to production mode
+velocity 		mW create 235.0 template_seed mom yes dist gaussian
+fix p2			mW npt temp 235.0 235.0 1000.0 tchain 10 z 1.0 1.0 5000.0 pchain 10 dilate mW
+fix_modify p2	temp mWtemp
+
+# data output style for production
+thermo			100
+thermo_style	custom elaplong pe ke temp press vol enthalpy c_mWtemp
+thermo_modify	flush yes
+dump prodDump	all xtc 100 traj.xtc
+
+run				100000000
